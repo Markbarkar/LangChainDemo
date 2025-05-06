@@ -1,0 +1,306 @@
+# 面经八股
+
+### 手撕项目
+
+### 1. **DQN算法的流程**
+
+1. 初始化Q网络和目标网络，且初始化经验回放池。
+2. 在环境中与环境交互，智能体根据状态选择动作（根据贪婪策略或epsilon-greedy策略）。
+3. 将交互得到的经验存储到经验回放池。
+4. 从经验回放池中随机抽取批次数据，使用Q网络预测当前Q值，并使用目标网络预测下一个状态的最大Q值。
+5. 更新Q网络的权重，通过最小化目标Q值和当前Q值之间的误差来优化网络。
+6. 每隔一段时间，更新目标网络的权重。
+7. 重复上述过程，直到达到目标。
+
+### **算法特点**
+
+- **稳定性**：目标网络和经验回放池的引入，极大地提高了训练的稳定性和效率。
+- **高效性**：深度神经网络能够处理复杂的状态空间，例如图像数据，这使得DQN可以解决在传统Q-learning中无法处理的问题。
+- **简单易用**：相比一些其他强化学习算法（如A3C或PPO），DQN的实现较为简单，容易上手。
+
+### 2. 为什么使用DQN而不是别的算法？
+
+**DQN**非常适用于具有**离散动作空间**的问题。在明日方舟自动化agent项目中，智能体的任务是从多个离散的动作（如放置干员、使用技能、撤退干员、等待等）中做出选择。DQN能够通过一个神经网络来学习每个动作的Q值，从而选择最优的动作。
+
+其他强化学习算法，如**深度确定性策略梯度（DDPG）\**和\**近端策略优化（PPO）**，通常适用于**连续动作空间**的问题，而对于离散动作空间，DQN更直观且高效。
+
+在明日方舟自动化agent项目中，使用DQN的另一个优势是它的**计算复杂度相对较低**，特别是相比其他更复杂的算法（如**PPO**或**A3C**）。DQN通过一个单一的神经网络来估计每个状态-动作对的Q值，这使得其实现和训练更加简单和高效。
+
+相较之下，像PPO和A3C这样的算法需要多线程或者多智能体的协同训练，计算资源需求较高，并且实现和调优的复杂性更大。
+
+### 3. 为什么要引入经验回放池？
+
+DQN引入了**经验回放池（Replay Buffer）**，即存储智能体与环境交互过程中产生的经验，并从中随机采样进行训练。这一机制**有效避免了在序列数据中训练时可能出现的相关性问题，从而提高了训练的稳定性和效率**。
+
+虽然其他算法（如**PPO**）也可以用于稳定训练，但DQN通过经验回放使得模型能够在不依赖于样本顺序的情况下进行多次学习。
+
+### 4. 技术难点
+
+#### 1.对于分散动作的处理
+
+##### **问题描述**
+
+在游戏环境中，干员分为**高台**和**地面**单位，它们只能放置在特定位置。但在早期的DQN策略中，Agent可能错误地将高台干员放在地面，导致非法操作。
+
+##### **解决方案**
+
+###### 引入动作掩码（Action Masking）
+
+- 在 `take_action()` 选择动作时，对不合法的动作进行屏蔽：
+
+- 这样，Q网络在计算Q值时会自动忽略这些无效操作，防止Agent做出非法决策。
+
+#### 2. **经验回放池中的数据过时**
+
+##### **问题描述**
+
+- 由于DQN采用经验回放池，存储的经验可能会随环境变化而失效，导致智能体在过时数据上学习，影响最终的训练效果。
+
+##### **解决方案**
+
+###### **增加经验回放池的替换策略**
+
+- 采用 **FIFO（先进先出）策略**，定期丢弃旧数据，确保智能体始终基于最新的游戏环境学习。
+
+###### **使用`recent_experience_replay`策略**
+
+- 在采样时增加新数据的权重，减少过时数据的影响。
+
+### 5. 用到的技术
+
+##### 1. **强化学习（Reinforcement Learning）**
+
+- **DQN (Deep Q-Network)**：项目核心使用了DQN算法，这是强化学习中的一种基于深度学习的方法，用于解决高维状态空间下的决策问题。该算法通过Q值网络预测每个动作的价值，并利用经验回放池（Replay Buffer）来优化模型。
+- **Epsilon-Greedy策略**：在动作选择中，使用了epsilon-贪婪策略来平衡探索与利用，确保在一定的概率下，智能体采取随机探索行为，以便发掘更有效的策略。
+
+##### 2.  **环境模拟与控制（Gym环境）**
+
+- 该项目使用了**Gym**库来创建自定义环境 `ArknightEnv`，其模拟了明日方舟游戏中的干员放置、技能使用、撤退等动作。这些动作空间被设计为多维离散空间（MultiDiscrete），便于强化学习模型进行决策。
+- 环境通过**状态空间（observation space）**和**动作空间（action space）**来描述，并且支持通过`step()`方法与环境交互。
+
+##### 3. **YOLO（You Only Look Once）**
+
+- 使用**YOLO**模型（`ultralytics.YOLO`）进行图像处理和敌人检测。该模型被用来在屏幕截图中检测敌人的位置，帮助环境更新敌人数量等状态信息。
+
+##### 4. **计算机视觉与图像处理**
+
+- **PyAutoGUI**：用来模拟鼠标和键盘的操作，自动执行干员的放置、技能使用和撤退等任务。
+
+- **自定义图像处理工具（Cutter）**：该工具用于截取和处理屏幕截图，从中提取游戏状态信息，如部署费用、敌人数量等。
+
+  
+
+### DEEPSEEK本地部署
+
+如果面试官问你**Deepseek本地部署方法有哪些**，你可以按照**部署方式的多样性**、**适用场景**、**优化方法**等方面来回答，以展示你的技术深度。以下是一个**结构化、高技术含量的回答**：
+
+------
+
+#### **1. Deepseek 本地部署的主要方法**
+
+Deepseek 的本地部署可以通过**模型推理框架**和**加速优化方案**来进行。主要有以下几种方式：
+
+##### **(1) 使用 Hugging Face Transformers 进行部署**
+
+- **适用场景**：适用于开发者希望直接使用 `transformers` 加载模型进行推理的情况，适合快速测试。
+
+- 部署方法
+
+  ：
+
+  ```python
+  from transformers import AutoModelForCausalLM, AutoTokenizer
+  import torch
+  
+  model_name = "deepseek-ai/deepseek-coder-6.7b"
+  tokenizer = AutoTokenizer.from_pretrained(model_name)
+  model = AutoModelForCausalLM.from_pretrained(model_name, device_map="auto", torch_dtype=torch.float16)
+  
+  inputs = tokenizer("你好，Deepseek!", return_tensors="pt").to("cuda")
+  outputs = model.generate(**inputs)
+  print(tokenizer.decode(outputs[0]))
+  ```
+
+- 优化点
+
+  ：
+
+  - 可以使用 `torch_dtype=torch.float16` 进行 **半精度推理**，减少显存占用。
+  - `device_map="auto"` 自动分配 GPU/CPU 计算，提高推理效率。
+
+------
+
+**(2) 使用 vLLM 进行高效推理**
+
+- **适用场景**：适用于希望在**单机**或**多GPU**上优化推理性能的情况，**吞吐量远超 Hugging Face 方案**。
+
+- 部署方法：
+
+  ```bash
+  pip install vllm
+  ```
+
+  ```python
+  from vllm import LLM, SamplingParams
+  
+  llm = LLM(model="deepseek-ai/deepseek-coder-6.7b")
+  sampling_params = SamplingParams(temperature=0.7, top_p=0.9, max_tokens=256)
+  outputs = llm.generate(["写一个Python快速排序函数"], sampling_params)
+  print(outputs[0].outputs[0].text)
+  ```
+
+- 优势：
+
+  - **连续批处理**（Continuous Batching）：支持多个请求并行处理，极大提高吞吐量。
+  - **PagedAttention** 技术：减少显存占用，提高大模型推理速度。
+
+------
+
+**(3) 使用 GGUF 量化模型（低显存本地部署）**
+
+- **适用场景**：适用于**低显存**设备（如 8GB 显存显卡，甚至 CPU）进行本地推理。
+
+- 部署方法：
+
+  1. 下载量化模型（GGUF 格式）：
+
+     ```bash
+     wget https://huggingface.co/TheBloke/deepseek-coder-6.7B-GGUF/resolve/main/deepseek-coder-6.7B.Q4_K_M.gguf
+     ```
+
+  2. 使用 
+
+     ```
+     llama.cpp
+     ```
+
+      进行推理：
+
+     ```bash
+     git clone https://github.com/ggerganov/llama.cpp
+     cd llama.cpp
+     make
+     ./main -m deepseek-coder-6.7B.Q4_K_M.gguf -p "你好，Deepseek!"
+     ```
+
+- 优化点：
+
+  - **量化支持**：GGUF 提供 4-bit、5-bit、8-bit 等量化方案，适用于低端硬件。
+  - **CPU 兼容**：即使没有 GPU 也可以运行 Deepseek。
+
+------
+
+#### **2. 进一步优化本地部署**
+
+##### **(1) DeepSpeed 加速推理**
+
+- **适用于**：希望在 **多 GPU** 上运行，提高推理速度。
+
+- 方法：
+
+  ```python
+  from transformers import AutoModelForCausalLM, AutoTokenizer
+  import torch
+  from deepspeed import init_inference
+  
+  model_name = "deepseek-ai/deepseek-coder-6.7b"
+  tokenizer = AutoTokenizer.from_pretrained(model_name)
+  model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype=torch.float16)
+  
+  model = init_inference(model, dtype=torch.float16, replace_with_kernel_inject=True)
+  ```
+
+- 效果：
+
+  - **DeepSpeed Zero-Inference** 技术优化参数加载，减少 GPU 显存占用。
+  - 支持 **多卡并行**，提高吞吐量。
+
+##### **(2) FlashAttention 2 提升内存效率**
+
+- 适用于 
+
+  自定义训练 / 低显存推理
+
+  ，减少显存开销：
+
+  ```bash
+  pip install flash-attn
+  ```
+
+- 在 `model.forward()` 过程中替换 `torch.nn.MultiheadAttention` 为 `flash-attn`，减少显存消耗。
+
+------
+
+#### **3. 总结**
+
+1. **快速推理** → `transformers + device_map="auto"`
+2. **高吞吐量推理** → `vLLM`
+3. **低显存部署** → `GGUF + llama.cpp`
+4. **多GPU优化** → `DeepSpeed`
+5. **减少显存消耗** → `FlashAttention 2`
+
+这样回答，不仅展示了你对 **Deepseek 本地部署方案的全面了解**，还展现了你在**模型优化、推理加速和低显存优化**方面的技术深度，非常有助于在面试中脱颖而出。
+
+
+
+#### Agent
+
+**什么是大模型（LLM）Agent?**
+
+Agent（智能体）概念最早由人工智能领域的研究者提出，旨在模拟人类的智能行为。最初的Agent系统主要集中在解决特定问题或领域，如专家系统、规则引擎等。
+
+20世纪80年代末和90年代初，随着计算机和网络技术的发展，Agent开始融入到各种应用中，如搜索引擎、个人助理等。
+
+强化学习等技术的兴起（2014年起，深度强化学习出现）使得Agent能够通过与环境的交互来学习和优化其行为。
+
+直到现在，基于LLM和深度强化学习结合的Agent已经成为人工智能领域的核心研究方向之一，涉及到智能系统、机器人、游戏、自动化等多个领域。
+
+简而言之，现在的Agent就是LLM + Planning + Memory + Tools，让大模型实现任务自动化，并且能够不断探索、规划和发展新技能。
+
+
+
+#### 模型微调
+
+##### 微调大模型时，如果 batch size 设置太小 会出现什么 问题？
+
+​    **当 batch size 较小时，更新方向（即对真实梯度的近似）会具有很高的方差，导致的梯度更新主要是噪 声。**经过一些更新后，方差会相互抵消，总体上推动模型朝着正确的方向前进，但个别更新可能不太有 用，可以一次性应用（使用更大 batch size 进行更新）。
+
+##### 微调大模型时，如果 batch size 设置太大 会出现什么 问题？
+
+​    当 batch size 非常大时，我们**从训练数据中抽样的任何两组数据都会非常相似**（因为它们几乎完全匹配 真实梯度）。因此，在这种情况下，增加 batch size **几乎不会改善性能**，因为你无法改进真实的梯度预 测。换句话说，你需要在每一步中处理更多的数据，但并不能减少整个训练过程中的步数，这表明总体 训练时间几乎没有改善。但是更糟糕的是你增加了总体的 FLOPS。
+
+**目前主流的开源模型体系有哪些？**
+
+主流的开源模型体系包括**GPT系列**（如GPT-3）、**BERT**系列（如BERT、RoBERTa）、**T5**系列（如T5、mT5）等。这些模型均基于Transformer架构，具有强大的自然语言处理能力。
+
+**微调与预训练的主要区别是什么？**
+
+答：预训练是对**大规模无标注数据**进行通用表示学习，微调则使用**小规模标注数据**进行任务特化。
+
+**为什么在微调时需要使用较低的学习率？**
+
+答：以防破坏预训练的通用特征，确保优化稳定，特别是在高维参数空间中。
+
+**微调的过拟合风险如何通过正则化缓解？**
+
+答：使用 **L2 正则化**或 **dropout** 降低复杂度，或通过**冻结部分参数**限制过度学习。
+
+**微调中常用的优化器有哪些？**
+
+答：Adam、[AdamW](https://zhida.zhihu.com/search?content_id=253038218&content_type=Article&match_order=1&q=AdamW&zhida_source=entity) 和 [SGD](https://zhida.zhihu.com/search?content_id=253038218&content_type=Article&match_order=1&q=SGD&zhida_source=entity)，AdamW 因其正则化效果常被首选。
+
+**为什么需要[混合精度训练](https://zhida.zhihu.com/search?content_id=253038218&content_type=Article&match_order=1&q=混合精度训练&zhida_source=entity)？**
+
+答：混合精度通过结合 FP32 和 FP16 运算减少显存使用，提高计算效率。
+
+**在工业实践中，如何评估微调的模型效果？**
+
+答：使用任务特定指标，如准确率、F1 值、BLEU 或 ROUGE。
+
+**微调时的批量大小如何选择？**
+
+答：受限于硬件资源，通常尝试较大批量结合梯度累积来平衡收敛速度和内存占用。
+
+**微调时的批量大小如何选择？**
+
+答：受限于硬件资源，通常尝试较大批量结合梯度累积来平衡收敛速度和内存占用。

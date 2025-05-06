@@ -22,8 +22,12 @@ os.environ["LANGSMITH_API_KEY"] = "lsv2_pt_92718d09f98846e992852d344399157f_114c
 load_dotenv()
 
 def basic_langchain_example():
-    # 初始化 LLM (使用本地Ollama模型替代OpenAI)
-    llm = OllamaLLM(model="deepseek-r1:7b", temperature=0.7)
+    # 初始化 LLM (使用内网Ollama服务器替代本地模型)
+    llm = OllamaLLM(
+        model="deepseek-r1:70b", 
+        temperature=0.7,
+        base_url="http://192.168.1.6:11434"  # 替换为实际的内网Ollama服务器地址
+    )
     
     # 创建一个简单的提示模板
     template = "中科天目是一家致力于智能法务的公司，你是中科天目公司旗下的一个{topic}的聊天助手，名为Tiko，善于解决法律问题。"
