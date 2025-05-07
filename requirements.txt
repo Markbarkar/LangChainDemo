@@ -38,6 +38,7 @@ langchain-text-splitters==0.3.8
 langdetect==1.0.9
 langserve==0.3.1
 langsmith==0.3.42
+langgraph==0.0.26
 lxml==5.4.0
 marshmallow==3.26.1
 multidict==6.4.3

@@ -1,4 +1,3 @@
-from operator import add
 import os
 from dotenv import load_dotenv
 from langchain_ollama import OllamaLLM
@@ -6,10 +5,10 @@ from langchain.prompts import PromptTemplate
 from langchain.chains import LLMChain
 from fastapi import FastAPI
 from langserve import add_routes
-from langchain_community.chat_message_histories import RedisChatMessageHistory, ChatMessageHistory
+from langchain_community.chat_message_histories import RedisChatMessageHistory
 from langchain_core.runnables import RunnableWithMessageHistory
 from langchain.schema import HumanMessage
-from uvicorn import config
+import uvicorn
 
 os.environ["LANGSMITH_TRACING"] = "true"
 os.environ["LANGSMITH_ENDPOINT"] = "https://api.smith.langchain.com"
@@ -30,47 +29,50 @@ def basic_langchain_example():
     )
     
     # 创建一个简单的提示模板
-    template = "中科天目是一家致力于智能法务的公司，你是中科天目公司旗下的一个{topic}的聊天助手，名为Tiko，善于解决法律问题。"
-    prompt = PromptTemplate(template=template, input_variables=["topic"])
+    template = """中科天目是一家致力于智能法务的公司，你是中科天目公司旗下的一个人工智能聊天助手，名为Tiko，善于解决法律问题。
+
+    当前对话历史：
+    {chat_history}
+
+    用户: {input}
+    Tiko: """
+    prompt = PromptTemplate(template=template, input_variables=["chat_history", "input"])
     
     # 创建一个简单的链
     chain = prompt | llm
-
-    store_msg = {}
-
-    config = {
-        "session_id": "123"
-    }
-
-    def get_session_message_history(session_id: str) -> ChatMessageHistory:
-        # 若有该值则存储，否则添加该值并返回设定值
-        return store_msg.setdefault(session_id, ChatMessageHistory())
     
+    # 格式化聊天历史
+    def format_chat_history(messages):
+        return "\n".join([f"{'用户' if isinstance(m, HumanMessage) else 'Tiko'}: {m.content}" for m in messages])
+
+    # Redis配置
+    redis_url = "redis://192.168.1.6:6379/0"
+
+    def get_message_history(session_id: str) -> RedisChatMessageHistory:
+        # 使用Redis存储聊天历史
+        return RedisChatMessageHistory(
+            session_id=session_id,
+            url=redis_url,
+            key_prefix="chat_history:"
+        )
+    
+    # 创建带有消息历史的可运行链
     chain_with_history = RunnableWithMessageHistory(
-        chain, 
-        get_session_message_history,
-        input_messages_key="messages",  
+        chain,
+        get_message_history,
+        input_messages_key="chat_history",
+        history_transform_fn=format_chat_history,
+        history_messages_key="chat_history"
     )
 
-    repo = chain_with_history.invoke(
-        input = {
-        "topic": "中文", 
-        "messages": [HumanMessage(content="我是小明，你是谁？")]
-        },
-        config=config
-    )
-    
-    print(repo)
+    # 创建FastAPI应用
+    app = FastAPI()
 
-    repo2 = chain_with_history.invoke(
-        input = {
-        "topic": "中文", 
-        "messages": [HumanMessage(content="我叫什么名字？")]
-        },
-        config=config
-    )
-    
-    print(repo2)
+    # 添加聊天路由
+    add_routes(app, chain_with_history, path="/chat")
+
+    # 启动服务器
+    uvicorn.run(app, host="0.0.0.0", port=8000)
 
 if __name__ == "__main__":
     basic_langchain_example()
