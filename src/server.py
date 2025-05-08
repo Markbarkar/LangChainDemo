@@ -10,7 +10,7 @@ import uvicorn
 
 os.environ["LANGSMITH_TRACING"] = "true"
 os.environ["LANGSMITH_ENDPOINT"] = "https://api.smith.langchain.com"
-os.environ["LANGSMITH_API_KEY"] = "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"
+os.environ["LANGSMITH_API_KEY"] = os.getenv("LANGSMITH_API_KEY", "")
 
 # LANGSMITH_PROJECT="pr-untimely-streetcar-57"
 # OPENAI_API_KEY="<your-openai-api-key>"
